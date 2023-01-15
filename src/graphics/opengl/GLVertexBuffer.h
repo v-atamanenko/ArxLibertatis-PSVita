@@ -61,12 +61,14 @@ inline void setVertexArray(OpenGLRenderer * renderer, const TexturedVertex * ver
 	
 	glVertexPointer(4, GL_FLOAT, sizeof(*vertices), &vertices->p);
 	
+	#ifdef GL_FOG_COORDINATE_ARRAY
 	if(renderer->hasVertexFogCoordinate()) {
 		// Use clip.w == view.z as the fog depth to match other vertex types
 		// TODO remove GL_FOG_COORDINATE_* uses once vertices are provided in view-space coordinates
 		glEnableClientState(GL_FOG_COORDINATE_ARRAY);
 		glFogCoordPointer(GL_FLOAT, sizeof(*vertices), &vertices->w);
 	}
+	#endif
 	
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(*vertices), &vertices->color);
 	
@@ -82,9 +84,11 @@ inline void setVertexArray(OpenGLRenderer * renderer, const SMY_VERTEX * vertice
 	
 	glVertexPointer(3, GL_FLOAT, sizeof(*vertices), &vertices->p.x);
 	
+	#ifdef GL_FOG_COORDINATE_ARRAY
 	if(renderer->hasVertexFogCoordinate()) {
 		glDisableClientState(GL_FOG_COORDINATE_ARRAY);
 	}
+	#endif
 	
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(*vertices), &vertices->color);
 	
@@ -100,9 +104,11 @@ inline void setVertexArray(OpenGLRenderer * renderer, const SMY_VERTEX3 * vertic
 	
 	glVertexPointer(3, GL_FLOAT, sizeof(*vertices), &vertices->p.x);
 	
+	#ifdef GL_FOG_COORDINATE_ARRAY
 	if(renderer->hasVertexFogCoordinate()) {
 		glDisableClientState(GL_FOG_COORDINATE_ARRAY);
 	};
+	#endif
 	
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(*vertices), &vertices->color);
 	

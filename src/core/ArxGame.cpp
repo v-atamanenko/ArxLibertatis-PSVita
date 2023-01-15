@@ -419,7 +419,11 @@ bool ArxGame::initWindow(RenderWindow * window) {
 	m_MainWindow->setTitle(arx_name + " " + arx_version);
 	m_MainWindow->setMinimizeOnFocusLost(config.window.minimizeOnFocusLost);
 	m_MainWindow->setMinTextureUnits(3);
+#ifndef __vita__
 	m_MainWindow->setMaxMSAALevel(config.video.antialiasing ? 8 : 1);
+#else
+	m_MainWindow->setMaxMSAALevel(config.video.antialiasing ? 4 : 1);
+#endif
 	m_MainWindow->setVSync(benchmark::isEnabled() ? 0 : config.video.vsync);
 	
 	setWindowSize(config.video.fullscreen);
@@ -1026,7 +1030,9 @@ void ArxGame::onWindowLostFocus(const Window & /* window */) {
 
 void ArxGame::onResizeWindow(const Window & window) {
 	
+#ifndef __vita__
 	arx_assert(window.getSize() != Vec2i(0));
+#endif
 	
 	// A new window size will require a new backbuffer
 	// size, so the 3D structures must be changed accordingly.

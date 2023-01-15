@@ -96,7 +96,7 @@ void OpenGLRenderer::initialize() {
 	epoxy_handle_external_wglMakeCurrent();
 	#endif
 	
-	#elif ARX_HAVE_GLEW
+	#elif ARX_HAVE_GLEW && !defined(__vita__)
 	
 	if(glewInit() != GLEW_OK) {
 		LogError << "GLEW init failed";
@@ -139,7 +139,7 @@ void OpenGLRenderer::initialize() {
 	
 	u64 totalVRAM = 0, freeVRAM = 0;
 	{
-		#ifdef GL_NVX_gpu_memory_info
+		#if defined(GL_NVX_gpu_memory_info) || defined(__vita__)
 		if(gl.has("GL_NVX_gpu_memory_info")) {
 			// Implemented by the NVIDIA blob and radeon drivers in newer Mesa
 			GLint tmp = 0;
@@ -195,7 +195,7 @@ void OpenGLRenderer::initialize() {
 		std::ostringstream oss;
 		#if ARX_HAVE_EPOXY
 		oss << "libepoxy\n";
-		#elif ARX_HAVE_GLEW
+		#elif ARX_HAVE_GLEW && !defined(__vita__)
 		oss << "GLEW " << glewVersion << '\n';
 		#endif
 		const char * start = gl.versionString();
@@ -231,6 +231,9 @@ void OpenGLRenderer::initialize() {
 	
 	if(gl.isES()) {
 		m_hasTextureNPOT = gl.has("GL_OES_texture_npot", 2, 0);
+		#ifdef __vita__
+			m_hasTextureNPOT = false;
+		#endif
 		if(!m_hasTextureNPOT) {
 			LogWarning << "Missing OpenGL extension GL_OES_texture_npot";
 		}
@@ -247,6 +250,7 @@ void OpenGLRenderer::initialize() {
 		m_hasBGRTextureTransfer = true;
 	}
 	
+#ifndef __vita__
 	// GL_EXT_texture_filter_anisotropic is available for both OpenGL ES and desktop OpenGL
 	if(gl.has("GL_ARB_texture_filter_anisotropic", 4, 6) || gl.has("GL_EXT_texture_filter_anisotropic")) {
 		GLfloat limit;
@@ -256,7 +260,11 @@ void OpenGLRenderer::initialize() {
 	} else {
 		m_maximumSupportedAnisotropy = 1.f;
 	}
+#else
+	m_maximumSupportedAnisotropy = 1.f;
+#endif
 	
+#ifndef __vita__
 	if(gl.isES()) {
 		// OES_draw_elements_base_vertex requires OpenGL ES 2.0
 		// EXT_draw_elements_base_vertex requires OpenGL ES 2.0
@@ -270,6 +278,10 @@ void OpenGLRenderer::initialize() {
 		}
 		m_hasDrawRangeElements = true; // Introduced in OpenGL 1.2
 	}
+#else
+	m_hasDrawRangeElements = true;
+	m_hasDrawElementsBaseVertex = true;
+#endif
 	
 	if(gl.isES()) {
 		// EXT_map_buffer_range requires OpenGL ES 1.1
@@ -320,6 +332,7 @@ void OpenGLRenderer::initialize() {
 		#endif
 	}
 	
+#ifndef __vita__
 	if(gl.isES()) {
 		m_hasFogx = true;
 		m_hasFogDistanceMode = false;
@@ -327,12 +340,16 @@ void OpenGLRenderer::initialize() {
 		m_hasFogx = false;
 		m_hasFogDistanceMode = gl.has("GL_NV_fog_distance");
 	}
+#else
+    m_hasFogx = false;
+    m_hasFogDistanceMode = false;
+#endif
 	
 }
 
 void OpenGLRenderer::beforeResize(bool wasOrIsFullscreen) {
 	
-#if ARX_PLATFORM == ARX_PLATFORM_LINUX || ARX_PLATFORM == ARX_PLATFORM_BSD || ARX_PLATFORM == ARX_PLATFORM_HAIKU
+#if ARX_PLATFORM == ARX_PLATFORM_LINUX || ARX_PLATFORM == ARX_PLATFORM_BSD || ARX_PLATFORM == ARX_PLATFORM_HAIKU || defined(__vita__)
 	// No re-initialization needed
 	ARX_UNUSED(wasOrIsFullscreen);
 #else
@@ -369,6 +386,7 @@ void OpenGLRenderer::reinit() {
 	// Synchronize GL state cache
 	
 	m_MSAALevel = 0;
+#ifndef __vita__
 	{
 		GLint buffers = 0;
 		glGetIntegerv(GL_SAMPLE_BUFFERS, &buffers);
@@ -381,6 +399,7 @@ void OpenGLRenderer::reinit() {
 	if(m_MSAALevel > 0) {
 		glDisable(GL_MULTISAMPLE);
 	}
+#endif
 	m_hasMSAA = false;
 	
 	m_glstate.setCull(false);
@@ -391,10 +410,12 @@ void OpenGLRenderer::reinit() {
 		#endif
 	} else {
 		glFogi(GL_FOG_MODE, GL_LINEAR);
+		#ifdef GL_FOG_DISTANCE_MODE_NV
 		if(m_hasFogDistanceMode) {
 			// TODO Support radial fogs once all vertices are provided in view-space coordinates
 			glFogi(GL_FOG_DISTANCE_MODE_NV, GL_EYE_PLANE);
 		}
+		#endif
 	}
 	m_glstate.setFog(false);
 	
@@ -428,8 +449,10 @@ void OpenGLRenderer::reinit() {
 	m_glblendSrc = GL_ONE;
 	m_glblendDst = GL_ZERO;
 	
+	#ifdef GL_UNPACK_ALIGNMENT
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	#endif
 	
 	// number of conventional fixed-function texture units
 	GLint texunits = 0;
@@ -479,9 +502,11 @@ void OpenGLRenderer::enableTransform() {
 	glMatrixMode(GL_PROJECTION);
 	glLoadMatrixf(glm::value_ptr(m_projection));
 	
+	#ifdef GL_FOG_COORDINATE_SOURCE
 	if(hasVertexFogCoordinate()) {
 		glFogi(GL_FOG_COORDINATE_SOURCE, GL_FRAGMENT_DEPTH);
 	}
+	#endif
 	
 	m_currentTransform = GL_ModelViewProjectionTransform;
 }
@@ -508,9 +533,11 @@ void OpenGLRenderer::disableTransform() {
 	// Change pixel origins
 	glTranslatef(0.5f, 0.5f, 0.f);
 	
+	#ifdef GL_FOG_COORDINATE_SOURCE
 	if(hasVertexFogCoordinate()) {
 		glFogi(GL_FOG_COORDINATE_SOURCE, GL_FOG_COORDINATE);
 	}
+	#endif
 	
 	m_currentTransform = GL_NoTransform;
 }
@@ -624,7 +651,7 @@ void OpenGLRenderer::Clear(BufferFlags bufferFlags, Color clearColor, float clea
 			glDepthMask(GL_TRUE);
 			m_glstate.setDepthWrite(true);
 		}
-		#ifdef GL_VERSION_4_1
+		#if defined(GL_VERSION_4_1) || defined(__vita__)
 		if(hasClearDepthf()) {
 			glClearDepthf(clearDepth);
 		}
@@ -700,12 +727,14 @@ void OpenGLRenderer::SetAntialiasing(bool enable) {
 		m_state.setAlphaCutout(alphaCutout);
 	}
 	
+	#ifdef GL_MULTISAMPLE
 	// This is mostly useless as multisampling must be enabled/disabled at GL context creation.
 	if(enable) {
 		glEnable(GL_MULTISAMPLE);
 	} else {
 		glDisable(GL_MULTISAMPLE);
 	}
+	#endif
 	m_hasMSAA = enable;
 }
 
@@ -958,18 +987,26 @@ void OpenGLRenderer::flushState() {
 			}
 			
 			if(m_glsampleShading && alphaTest != TestSS) {
+				#ifdef GL_SAMPLE_SHADING_ARB
 				glDisable(GL_SAMPLE_SHADING_ARB);
+				#endif
 				m_glsampleShading = false;
 			} else if(!m_glsampleShading && alphaTest == TestSS) {
+				#ifdef GL_SAMPLE_SHADING_ARB
 				glEnable(GL_SAMPLE_SHADING_ARB);
+				#endif
 				m_glsampleShading = true;
 			}
 			
 			if(m_glalphaToCoverage && alphaTest != TestA2C) {
+				#ifdef GL_SAMPLE_ALPHA_TO_COVERAGE
 				glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+				#endif
 				m_glalphaToCoverage = false;
 			} else if(!m_glalphaToCoverage && alphaTest == TestA2C) {
+				#ifdef GL_SAMPLE_ALPHA_TO_COVERAGE
 				glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+				#endif
 				m_glalphaToCoverage = true;
 			}
 			

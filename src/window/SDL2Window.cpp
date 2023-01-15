@@ -52,7 +52,11 @@
 #include "gui/Credits.h"
 #include "graphics/opengl/GLDebug.h"
 #include "graphics/opengl/OpenGLRenderer.h"
+#ifndef __vita__
 #include "input/SDL2InputBackend.h"
+#else
+#include "input/SDL2VitaInputBackend.h"
+#endif
 #include "io/log/Logger.h"
 #include "math/Rectangle.h"
 #include "platform/CrashHandler.h"
@@ -178,11 +182,22 @@ bool SDL2Window::initializeFramework() {
 	};
 	platform::EnvironmentLock environment(overrrides);
 	#endif
+
+#ifdef __vita__
+	vglSetParamBufferSize(2 * 1024 * 1024);
+	vglInitWithCustomThreshold(0, 720, 408, 11 * 1024 * 1024, 0, 0, 0, SCE_GXM_MULTISAMPLE_2X);
+	LogError << "Inited VitaGL customly";
+#endif
 	
-	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
+	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_EVENTS) < 0) {
 		LogError << "Failed to initialize SDL: " << SDL_GetError();
 		return false;
 	}
+
+#ifdef __vita__
+	// VITA: Touch events will not generate mouse events
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+#endif
 	
 	SDL_version ver;
 	SDL_GetVersion(&ver);
@@ -230,7 +245,28 @@ bool SDL2Window::initializeFramework() {
 	SDL_EventState(SDL_DROPFILE,    SDL_ENABLE);
 	SDL_EventState(SDL_SYSWMEVENT,  SDL_IGNORE);
 	SDL_EventState(SDL_USEREVENT,   SDL_IGNORE);
-	
+
+#ifdef __vita__
+    // have to set these BEFORE the window is created?
+	SDL_EventState(SDL_KEYDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_KEYUP, SDL_ENABLE);
+	SDL_EventState(SDL_TEXTINPUT, SDL_DISABLE);
+	SDL_EventState(SDL_TEXTEDITING, SDL_DISABLE);
+	#if SDL_VERSION_ATLEAST(2, 0, 5)
+	SDL_EventState(SDL_DROPTEXT, SDL_ENABLE);
+	#endif
+	SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
+	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERBUTTONDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERBUTTONUP, SDL_ENABLE);
+	SDL_EventState(SDL_CONTROLLERAXISMOTION, SDL_ENABLE);
+	SDL_EventState(SDL_FINGERDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_FINGERUP, SDL_ENABLE);
+	SDL_EventState(SDL_FINGERMOTION, SDL_ENABLE);
+	SDL_GameControllerEventState(SDL_ENABLE);
+#endif
+
 	return true;
 }
 
@@ -254,6 +290,8 @@ int SDL2Window::createWindowAndGLContext(const char * profile) {
 	int x = SDL_WINDOWPOS_UNDEFINED, y = SDL_WINDOWPOS_UNDEFINED;
 	Uint32 windowFlags = getSDLFlagsForMode(m_mode.resolution, m_fullscreen);
 	windowFlags |= SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN;
+	
+#ifndef __vita__
 	
 	for(int msaa = m_maxMSAALevel; true; msaa--) {
 		bool lastTry = (msaa == 0);
@@ -355,7 +393,19 @@ int SDL2Window::createWindowAndGLContext(const char * profile) {
 		
 		return std::max(msaa, 1);
 	}
-	
+
+#else
+
+	LogInfo << "Creating SDL window with width " << m_mode.resolution.x << " and height " << m_mode.resolution.y;
+	m_window = SDL_CreateWindow(m_title.c_str(), x, y, m_mode.resolution.x, m_mode.resolution.y, windowFlags);
+	if(!m_window) {
+		LogError << "Could not create window: " << SDL_GetError();
+		return 0;
+	}
+
+	return 2; // MSAA2x
+
+#endif
 }
 
 bool SDL2Window::initialize() {

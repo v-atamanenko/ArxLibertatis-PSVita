@@ -413,6 +413,8 @@ std::string getOSName() {
 	return "Haiku";
 	#elif ARX_PLATFORM == ARX_PLATFORM_UNIX
 	return "UNIX";
+	#elif defined(__vita__)
+	return "PSVita";
 	#else
 	return { };
 	#endif

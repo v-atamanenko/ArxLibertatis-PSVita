@@ -4,8 +4,31 @@ if(CMAKE_VERSION VERSION_LESS 3.12)
 	cmake_policy(VERSION ${CMAKE_VERSION})
 endif()
 
-project(arx-libertatis)
+if (VITA STREQUAL "ON")
+	if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+		if(DEFINED ENV{VITASDK})
+			set(CMAKE_TOOLCHAIN_FILE "$ENV{VITASDK}/share/vita.toolchain.cmake" CACHE PATH "toolchain file")
+		else()
+			message(FATAL_ERROR "Please define VITASDK to point to your SDK path!")
+		endif()
+	endif()
 
+	if(DEFINED ENV{PSVITAIP})
+		set(PSVITAIP "$ENV{PSVITAIP}")
+	else()
+		set(PSVITAIP "192.168.1.98")
+		message(WARNING "PSVITAIP environment variable is not set, using default IP ${PSVITAIP}")
+	endif()
+
+	if(DEFINED ENV{PARSECOREPATH})
+		set(PARSECOREPATH "$ENV{PARSECOREPATH}")
+	else()
+		set(PARSECOREPATH "/Users/v/Repos/vitasdk/vita-parse-core/main.py")
+		message(WARNING "PARSECOREPATH environment variable is not set, using default path ${PARSECOREPATH}")
+	endif()
+endif()
+
+project(arx-libertatis)
 
 # Define configuration options
 
@@ -304,29 +327,52 @@ include(PrintConfiguration)
 include(StyleCheck)
 include(UseStaticLibs)
 
-
 # Find required libraries
 
 set(ARX_LIBRARIES)
 set(BASE_LIBRARIES)
 
+# VITA Settings
+
+if(VITA)
+	set(WITH_SDL 2)
+	set(BUILD_TOOLS OFF)
+	set(BUILD_IO_LIBRARY OFF)
+	set(BUILD_CRASHHANDLER OFF)
+	set(BUILD_CRASHREPORTER OFF)
+	set(UNITY_BUILD OFF)
+	set(USE_STATIC_LIBS ON)
+	set(USE_X11 OFF)
+	set(ICON_TYPE "none")
+	set(USE_OPENAL ON)
+	set(USE_LTO OFF)
+
+	list(APPEND ARX_LIBRARIES openal -Wl,--whole-archive pthread -Wl,--no-whole-archive FLAC vorbisfile
+		vorbis mpg123 mikmod webp jpeg freetype ogg png
+		SceLibKernel_stub SceNet_stub SceNetCtl_stub 
+		SceSysmodule_stub m SceAppUtil_stub
+		ScePgf_stub SceRtc_stub ScePower_stub)
+endif()
+
 # Force re-checking libraries if the compiler or compiler flags change
 if((NOT LAST_CMAKE_CXX_FLAGS STREQUAL CMAKE_CXX_FLAGS)
    OR (NOT LAST_CMAKE_CXX_COMPILER STREQUAL CMAKE_CXX_COMPILER))
-	force_recheck_library(ZLIB)
-	force_recheck_library(Freetype)
-	force_recheck_library(Threads)
-	force_recheck_library(OpenAL)
-	force_recheck_library(OpenGL)
-	force_recheck_library(Epoxy)
-	force_recheck_library(GLEW)
-	force_recheck_library(Boost)
-	force_recheck_library(QtCore)
-	force_recheck_library(QtConcurrent)
-	force_recheck_library(QtGui)
-	force_recheck_library(QtWidgets)
-	force_recheck_library(CURL)
-	force_recheck_library(CppUnit)
+	if(NOT VITA)
+		force_recheck_library(ZLIB)
+		force_recheck_library(Freetype)
+		force_recheck_library(Threads)
+		force_recheck_library(OpenAL)
+		force_recheck_library(OpenGL)
+		force_recheck_library(Epoxy)
+		force_recheck_library(GLEW)
+		force_recheck_library(Boost)
+		force_recheck_library(QtCore)
+		force_recheck_library(QtConcurrent)
+		force_recheck_library(QtGui)
+		force_recheck_library(QtWidgets)
+		force_recheck_library(CURL)
+		force_recheck_library(CppUnit)
+	endif()
 	unset(Boost_INCLUDE_DIR CACHE)
 	set(LAST_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE INTERNAL
 	    "The last C++ compiler flags")
@@ -363,17 +409,22 @@ endif()
 
 # pthread / Win32 threads
 set(CMAKE_THREAD_PREFER_PTHREAD 1)
-find_package(Threads REQUIRED)
-if(NOT MSVC AND CMAKE_THREAD_LIBS_INIT)
-	check_link_library(Threads CMAKE_THREAD_LIBS_INIT)
+if(NOT VITA)
+	find_package(Threads REQUIRED)
+	if(NOT MSVC AND CMAKE_THREAD_LIBS_INIT)
+		check_link_library(Threads CMAKE_THREAD_LIBS_INIT)
+	endif()
+	list(APPEND ARX_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 endif()
-list(APPEND ARX_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
 
 # zlib
 if(CMAKE_VERSION VERSION_LESS 3.24)
 	use_static_libs(ZLIB)
 endif()
-find_package(ZLIB REQUIRED)
+if(NOT VITA)
+	# zlib is linked manually
+	find_package(ZLIB REQUIRED)
+endif()
 if(CMAKE_VERSION VERSION_LESS 3.24)
 	use_static_libs_restore()
 endif()
@@ -382,7 +433,11 @@ if(MSVC)
 else()
 	check_link_library(ZLIB ZLIB_LIBRARIES)
 endif()
-include_directories(SYSTEM ${ZLIB_INCLUDE_DIRS})
+if(VITA)
+	include_directories(${ZLIB_INCLUDE_DIRS})
+else()
+	include_directories(SYSTEM ${ZLIB_INCLUDE_DIRS})
+endif()
 list(APPEND ARX_LIBRARIES ${ZLIB_LIBRARIES})
 
 # FreeType
@@ -434,7 +489,11 @@ use_static_libs_restore()
 if(NOT MSVC)
 	check_link_library(Freetype FREETYPE_LIBRARIES)
 endif()
-include_directories(SYSTEM ${FREETYPE_INCLUDE_DIRS})
+if(VITA)
+	include_directories(${FREETYPE_INCLUDE_DIRS})
+else()
+	include_directories(SYSTEM ${FREETYPE_INCLUDE_DIRS})
+endif()
 list(APPEND ARX_LIBRARIES ${FREETYPE_LIBRARIES})
 
 # OpenGL
@@ -455,7 +514,7 @@ if(USE_OPENGL)
 			set(ARX_HAVE_GL_STATIC ${Epoxy_USE_STATIC_LIBS})
 		endif()
 	endif()
-	if(NOT ARX_HAVE_OPENGL AND (WITH_OPENGL STREQUAL "" OR WITH_OPENGL STREQUAL "glew"))
+	if(NOT ARX_HAVE_OPENGL AND (WITH_OPENGL STREQUAL "" OR WITH_OPENGL STREQUAL "glew") AND NOT VITA)
 		find_package(OpenGL ${OPTIONAL_DEPENDENCY})
 		find_package(GLEW 1.5.2 ${OPTIONAL_DEPENDENCY})
 		list(APPEND GLEW_DEFINITIONS -DGLEW_NO_GLU)
@@ -468,6 +527,12 @@ if(USE_OPENGL)
 			set(ARX_HAVE_OPENGL 1)
 			set(ARX_HAVE_GL_STATIC ${GLEW_USE_STATIC_LIBS})
 		endif()
+	endif()
+	if(VITA)
+		# To make less changes, we will pretend that we have GLEW on the Vita, but won't actually use it.
+		set(ARX_HAVE_GLEW 1)
+		set(ARX_HAVE_OPENGL 1)
+		set(ARX_HAVE_GL_STATIC ${GLEW_USE_STATIC_LIBS})
 	endif()
 endif()
 
@@ -490,11 +555,13 @@ if(NOT ARX_HAVE_SDL AND (NOT WITH_SDL OR WITH_SDL EQUAL 2))
 	set(SDL2_BUILDING_LIBRARY 1) # we don't need SDL2main!
 	find_package(SDL2 ${SDL_OPTIONAL_DEPENDENCY})
 	if(SDL2_FOUND)
-		if(NOT MSVC)
+		if(NOT MSVC AND NOT VITA)
 			check_link_library(SDL2 SDL2_LIBRARIES)
 		endif()
 		set(ARX_HAVE_SDL2 1)
 		set(ARX_HAVE_SDL 1)
+	elseif (VITA)
+		message(FATAL_ERROR "Could not find SDL2 which is necessary for Vita build")
 	endif()
 endif()
 if(NOT ARX_HAVE_SDL AND (NOT WITH_SDL OR WITH_SDL EQUAL 1))
@@ -526,7 +593,11 @@ endif()
 
 # Boost
 find_package(Boost 1.58 REQUIRED)
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+if(VITA)
+	include_directories(${Boost_INCLUDE_DIRS})
+else()
+	include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+endif()
 add_definitions(-DBOOST_ALL_NO_LIB)
 add_definitions(-DBOOST_EXCEPTION_DISABLE)
 add_definitions(-DBOOST_LEXICAL_CAST_ASSUME_C_LOCALE)
@@ -560,7 +631,11 @@ endif()
 
 # glm
 find_package(GLM 0.9.9.7 REQUIRED)
-include_directories(SYSTEM ${GLM_INCLUDE_DIRS})
+if(VITA)
+	include_directories(${GLM_INCLUDE_DIRS})
+else()
+	include_directories(SYSTEM ${GLM_INCLUDE_DIRS})
+endif()
 add_definitions(-DGLM_FORCE_RADIANS) # Only needed for older GLM versions
 
 # DbgHelp
@@ -627,7 +702,7 @@ if(ARX_HAVE_SDL AND ARX_HAVE_OPENGL AND NOT WIN32 AND NOT APPLE AND NOT HAIKU)
 	check_symbol_exists(SDL_HINT_VIDEO_X11_FORCE_EGL "SDL_hints.h" SDL_HAVE_VIDEO_X11_EGL)
 	if(EPOXY_FOUND)
 		set(CMAKE_REQUIRED_INCLUDES ${Epoxy_INCLUDE_DIR})
-	else()
+	elseif(NOT VITA)
 		set(CMAKE_REQUIRED_INCLUDES ${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIR})
 	endif()
 	if(SDL_HAVE_VIDEO_X11)
@@ -752,6 +827,12 @@ else(MSVC)
 	check_symbol_exists(getexecname "stdlib.h" ARX_HAVE_GETEXECNAME)
 	check_symbol_exists(setenv "stdlib.h" ARX_HAVE_SETENV)
 	check_symbol_exists(unsetenv "stdlib.h" ARX_HAVE_UNSETENV)
+
+	if(VITA)
+		set(ARX_HAVE_SETENV "")
+		set(ARX_HAVE_UNSETENV "")
+		set(ARX_HAVE_UNAME "")
+	endif()
 	
 	check_symbol_exists(__get_cpuid "cpuid.h" ARX_HAVE_GET_CPUID)
 	if(ARX_HAVE_GET_CPUID)
@@ -771,6 +852,10 @@ else(MSVC)
 	check_symbol_exists(open "fcntl.h" ARX_HAVE_OPEN)
 	check_symbol_exists(O_CLOEXEC "fcntl.h" ARX_HAVE_O_CLOEXEC)
 	check_symbol_exists(fcntl "fcntl.h" ARX_HAVE_FCNTL)
+	if(VITA)
+		set(ARX_HAVE_OPEN "")
+		set(ARX_HAVE_O_CLOEXEC "")
+	endif()
 	
 	check_symbol_exists(chdir "unistd.h" ARX_HAVE_CHDIR)
 	check_symbol_exists(fork "unistd.h" ARX_HAVE_FORK)
@@ -797,11 +882,14 @@ else(MSVC)
 	check_symbol_exists(sched_getscheduler "sched.h" ARX_HAVE_SCHED_GETSCHEDULER)
 	
 	check_symbol_exists(kill "signal.h" ARX_HAVE_KILL)
+	if(VITA)
+		set(ARX_HAVE_KILL "")
+	endif()
 	
 	check_symbol_exists(backtrace "execinfo.h" ARX_HAVE_BACKTRACE)
 	
 	check_include_file("sys/types.h" ARX_HAVE_SYS_TYPES_H)
-	if(CMAKE_USE_PTHREADS_INIT AND ARX_HAVE_SYS_TYPES_H)
+	if((CMAKE_USE_PTHREADS_INIT AND ARX_HAVE_SYS_TYPES_H) OR VITA)
 		set(ARX_HAVE_PTHREADS 1)
 	endif()
 	
@@ -843,7 +931,7 @@ else(MSVC)
 		
 		# Whether multiple cuncurrent readdir calls with *different* directory streams are threadsafe
 		set(READDIR_IS_THREADSAFE 0)
-		if(HAVE_GLIBC)
+		if(HAVE_GLIBC OR VITA)
 			# TODO Find a more portable check for this - from the glibc documentation:
 			# POSIX-1.2008 does not guarantee that readdir is thread-safe, even when access to the same
 			# dirstream is serialized. But in current implementations (including the GNU C Library),
@@ -1126,6 +1214,9 @@ set(INPUT_SOURCES
 )
 set(INPUT_SDL1_SOURCES src/input/SDL1InputBackend.cpp)
 set(INPUT_SDL2_SOURCES src/input/SDL2InputBackend.cpp)
+if(VITA)
+	set(INPUT_SDL2_SOURCES src/input/SDL2VitaInputBackend.cpp)
+endif()
 
 set(IO_SOURCES
 	src/io/IniReader.cpp
@@ -1291,15 +1382,21 @@ include_directories(src ${CMAKE_CURRENT_BINARY_DIR} ${PROJECT_SOURCE_DIR}/tools)
 if(USE_OPENAL AND OPENAL_FOUND)
 	list(APPEND AUDIO_SOURCES ${AUDIO_OPENAL_SOURCES})
 	list(APPEND ARX_LIBRARIES ${OPENAL_LIBRARY})
-	include_directories(SYSTEM ${OPENAL_INCLUDE_DIR})
+	if(VITA)
+		include_directories(${OPENAL_INCLUDE_DIR})
+	else()
+		include_directories(SYSTEM ${OPENAL_INCLUDE_DIR})
+	endif()
 	set(ARX_HAVE_OPENAL 1)
-	if(OPENALEFX_FOUND)
+	if(OPENALEFX_FOUND AND NOT VITA)
 		include_directories(SYSTEM ${OPENAL_EFX_INCLUDE_DIR})
 		set(ARX_HAVE_OPENAL_EFX 1)
 	endif()
 	set(old_CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES})
 	set(CMAKE_REQUIRED_INCLUDES ${OPENAL_INCLUDE_DIR})
-	check_symbol_exists(ALC_SOFT_HRTF "alext.h" ARX_HAVE_OPENAL_HRTF)
+	if (NOT VITA)
+		check_symbol_exists(ALC_SOFT_HRTF "alext.h" ARX_HAVE_OPENAL_HRTF)
+	endif()
 	set(CMAKE_REQUIRED_INCLUDES ${old_CMAKE_REQUIRED_INCLUDES})
 endif()
 
@@ -1309,6 +1406,9 @@ if(ARX_HAVE_OPENGL)
 	if(EPOXY_FOUND)
 		list(APPEND ARX_LIBRARIES ${Epoxy_LIBRARIES})
 		include_directories(SYSTEM ${Epoxy_INCLUDE_DIR})
+	elseif(VITA)
+		list(APPEND ARX_LIBRARIES ${OPENGL_gl_LIBRARY})
+		include_directories(${OPENGL_INCLUDE_DIR})
 	else()
 		list(APPEND ARX_LIBRARIES ${GLEW_LIBRARIES} ${OPENGL_gl_LIBRARY})
 		include_directories(SYSTEM ${OPENGL_INCLUDE_DIR} ${GLEW_INCLUDE_DIR})
@@ -1327,6 +1427,15 @@ if(ARX_HAVE_SDL)
 		list(APPEND WINDOW_SOURCES ${WINDOW_SDL2_SOURCES})
 		list(APPEND INPUT_SOURCES ${INPUT_SDL2_SOURCES})
 		list(APPEND ARX_LIBRARIES ${SDL2_LIBRARIES})
+		if (VITA)
+			# Somehow SDL2 deps don't get fetched automatically, so add them
+			# here manually
+			list(APPEND ARX_LIBRARIES vitaGL vitashark SceShaccCgExt taihen_stub
+			     SceShaccCg_stub mathneon SceCommonDialog_stub SceHid_stub
+			     SceAudioIn_stub SceAudio_stub SceCtrl_stub SceTouch_stub
+			     SceMotion_stub SceIme_stub SceGxm_stub SceDisplay_stub
+			     SceKernelDmacMgr_stub SceAppMgr_stub)
+		endif()
 		include_directories(SYSTEM ${SDL2_INCLUDE_DIRS})
 	elseif(ARX_HAVE_SDL1)
 		list(APPEND WINDOW_SOURCES ${WINDOW_SDL1_SOURCES})
@@ -1413,7 +1522,11 @@ endif()
 list(APPEND ARX_LIBRARIES ${BASE_LIBRARIES})
 
 if(NOT ARX_HAVE_CXX17_FROM_CHARS_FLOAT)
-	include_directories(SYSTEM thirdparty/fast_float/include)
+	if(VITA)
+		include_directories(thirdparty/fast_float/include)
+	else()
+		include_directories(SYSTEM thirdparty/fast_float/include)
+	endif()
 endif()
 
 if(NOT MSVC)
@@ -1843,6 +1956,9 @@ endif()
 
 if(UNITY_BUILD)
 	unity_build()
+elseif(VITA)
+	# Makes building faster and less error-prone
+	separate_build()
 else()
 	shared_build()
 endif()
@@ -2097,4 +2213,47 @@ if(ARX_HAVE_SDL AND ARX_HAVE_OPENGL AND NOT WIN32 AND NOT APPLE AND NOT HAIKU)
 		endif()
 		message(${severity} "SDL is configured with Wayland support but ${wrangler} is missing EGL support")
 	endif()
+endif()
+
+if(VITA)
+
+	include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
+
+	set(VITA_APP_NAME "Arx Libertatis")
+	set(VITA_TITLEID  "ARX000001")
+	set(VITA_VPKNAME  "ArxLibertatis")
+	set(VITA_VERSION  "01.00")
+	set(VITA_MKSFOEX_FLAGS "-d ATTRIBUTE2=12")
+
+	vita_create_self(eboot.bin arx UNSAFE)
+	vita_create_vpk(${VITA_VPKNAME}.vpk ${VITA_TITLEID} eboot.bin
+			VERSION ${VITA_VERSION}
+			NAME ${VITA_APP_NAME}
+			#FILE ${CMAKE_SOURCE_DIR}/livearea/icon0.png sce_sys/icon0.png
+			#  ${CMAKE_SOURCE_DIR}/livearea/pic0.png sce_sys/pic0.png
+			#  ${CMAKE_SOURCE_DIR}/livearea/startup.png sce_sys/livearea/contents/startup.png
+			#  ${CMAKE_SOURCE_DIR}/livearea/conf.png sce_sys/livearea/contents/conf.png
+			#  ${CMAKE_SOURCE_DIR}/livearea/bg0.png sce_sys/livearea/contents/bg0.png
+			#  ${CMAKE_SOURCE_DIR}/livearea/template.xml sce_sys/livearea/contents/template.xml
+	)
+
+	add_custom_target(send
+			COMMAND echo destroy | nc ${PSVITAIP} 1338
+			COMMAND curl -T eboot.bin ftp://${PSVITAIP}:1337/ux0:/app/${VITA_TITLEID}/
+			COMMAND echo launch ${VITA_TITLEID} | nc ${PSVITAIP} 1338
+			DEPENDS ${VITA_VPKNAME}.vpk-vpk
+	)
+
+	add_custom_target(send_kvdb
+			COMMAND echo destroy | nc ${PSVITAIP} 1338
+			COMMAND curl -T eboot.bin ftp://${PSVITAIP}:1337/ux0:/app/${VITA_TITLEID}/
+			COMMAND echo launch ux0:/app/${VITA_TITLEID}/eboot.bin | nc ${PSVITAIP} 1338
+			DEPENDS ${VITA_VPKNAME}.vpk-vpk
+	)
+
+	add_custom_target(dump
+			COMMAND ${CMAKE_SOURCE_DIR}/get_dump.sh ${PSVITAIP}
+			COMMAND python3 ${PARSECOREPATH} coredump arx
+	)
+
 endif()

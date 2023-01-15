@@ -761,13 +761,22 @@ class SoundUpdateThread final : public StoppableThread {
 			
 			ARX_PROFILE("SoundUpdate");
 			
+		#ifndef __vita__
 			sleep(100ms);
+		#else
+			sleep(250ms);
+		#endif
 			
 			update();
 		}
 		
 	}
-	
+
+#ifdef __vita__
+	// Create thread with custom stack size
+public:
+	SoundUpdateThread() : StoppableThread(16*1024) { }
+#endif
 };
 
 void SoundUpdateThread::update() {
@@ -823,9 +832,9 @@ void threadStart() {
 	
 	arx_assert(!updateThread);
 	
-	updateThread = new SoundUpdateThread();
-	updateThread->setThreadName("Sound Update");
-	updateThread->start();
+	//updateThread = new SoundUpdateThread();
+	//updateThread->setThreadName("Sound Update");
+	//updateThread->start();
 }
 
 void threadStop() {

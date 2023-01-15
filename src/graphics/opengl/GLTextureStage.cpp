@@ -180,7 +180,7 @@ void GLTextureStage::setAlphaOp(TextureOp op) {
 }
 
 void GLTextureStage::setMipMapLODBias(float bias) {
-	
+#ifdef GL_TEXTURE_FILTER_CONTROL
 	if(mStage != 0) {
 		glActiveTexture(GL_TEXTURE0 + mStage);
 	}
@@ -190,6 +190,7 @@ void GLTextureStage::setMipMapLODBias(float bias) {
 	if(mStage != 0) {
 		glActiveTexture(GL_TEXTURE0);
 	}
+#endif
 }
 
 void GLTextureStage::apply() {

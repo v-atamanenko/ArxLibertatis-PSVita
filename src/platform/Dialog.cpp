@@ -81,6 +81,32 @@ static bool showDialog(DialogType type, const std::string & message,
 // See Dialog.mm for the implementation of showDialog
 bool showDialog(DialogType type, const std::string & message, const std::string & title);
 
+#elif defined(__vita__)
+
+// TODO: Do proper dialogs
+
+static bool showDialog(DialogType type, const std::string & message,
+                       const std::string & title) {
+
+	std::string msg = "Game wants to show dialog of type ";
+	
+	unsigned int flags;
+	switch(type) {
+		case DialogInfo:      msg += "DialogInfo"; break;
+		case DialogWarning:   msg += "DialogWarning"; break;
+		case DialogError:     msg += "DialogError"; break;
+		case DialogYesNo:     msg += "DialogYesNo"; break;
+		case DialogWarnYesNo: msg += "DialogWarnYesNo"; break;
+		case DialogOkCancel:  msg += "DialogOkCancel"; break;
+	}
+	
+	msg += ", with title \"" + title + "\", and message: " + message;
+
+	printf("%s\n", msg.c_str());
+	
+	return false;
+}
+
 #else
 
 static bool isAllowedInUrl(char c) {

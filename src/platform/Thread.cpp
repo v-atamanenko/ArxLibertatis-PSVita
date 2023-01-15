@@ -65,11 +65,12 @@ void Thread::setThreadName(std::string_view threadName) {
 #include <pthread_np.h>
 #endif
 
-Thread::Thread()
+Thread::Thread(size_t stacksize)
 	: m_thread()
 	, m_priority()
 	, m_started(false)
 {
+	m_stacksize = stacksize;
 	setPriority(Normal);
 }
 
@@ -85,6 +86,10 @@ void Thread::start() {
 	sched_param param;
 	param.sched_priority = m_priority;
 	pthread_attr_setschedparam(&attr, &param);
+	if (m_stacksize > 0){
+		printf("Creating thread with stacksize %i\n", m_stacksize);
+		pthread_attr_setstacksize(&attr, m_stacksize);
+	}
 	
 	pthread_create(&m_thread, &attr, entryPoint, this);
 	
@@ -392,7 +397,7 @@ void Thread::disableFloatDenormals() {
 	
 }
 
-#if ARX_HAVE_NANOSLEEP
+#if ARX_HAVE_NANOSLEEP && !defined(__vita__)
 
 #include <time.h>
 
@@ -403,6 +408,14 @@ void Thread::sleep(PlatformDuration time) {
 	t.tv_nsec = long(toUs(time) % 1000000) * 1000l;
 	
 	nanosleep(&t, nullptr);
+}
+
+#elif defined(__vita__)
+
+#include <psp2/kernel/threadmgr.h>
+
+void Thread::sleep(PlatformDuration time) {
+	sceKernelDelayThread(toUs(time));
 }
 
 #elif ARX_PLATFORM == ARX_PLATFORM_WIN32

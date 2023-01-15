@@ -53,7 +53,7 @@ OpenGLInfo::OpenGLInfo()
 	#if ARX_HAVE_EPOXY
 	m_isES = !epoxy_is_desktop_gl();
 	m_version = epoxy_gl_version();
-	#elif ARX_HAVE_GLEW
+	#elif ARX_HAVE_GLEW && !defined(__vita__)
 	if(glewIsSupported("GL_VERSION_4_4")) {
 		m_version = 44;
 	} else if(glewIsSupported("GL_VERSION_4_3")) {
@@ -79,6 +79,9 @@ OpenGLInfo::OpenGLInfo()
 	} else if(glewIsSupported("GL_VERSION_1_4")) {
 		m_version = 14;
 	}
+	#elif defined(__vita__)
+	m_version = 21;
+	m_isES = true;
 	#endif
 	
 	m_versionString = reinterpret_cast<const char *>(glGetString(GL_VERSION));
@@ -172,6 +175,8 @@ void OpenGLInfo::parseOverrideConfig(std::string_view string) {
 	}
 }
 
+#ifndef __vita__
+
 bool OpenGLInfo::has(const char * extension, u32 version) const {
 	
 	if(m_version < version) {
@@ -205,3 +210,17 @@ bool OpenGLInfo::has(const char * extension, u32 version) const {
 	}
 	
 }
+
+#elif defined(__vita__)
+
+bool OpenGLInfo::has(const char * extension, u32 version) const {
+	int num_extensions;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &num_extensions);
+	for (int i = 0; i < num_extensions; i++) {
+		if (!strcmp((char *)glGetStringi(GL_EXTENSIONS, i), extension))
+			return true;
+	}
+	return false;
+}
+
+#endif

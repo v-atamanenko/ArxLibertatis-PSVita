@@ -77,7 +77,24 @@
 	#undef main /* in case SDL.h was already included */
 #endif
 
+#ifdef __vita__
+#include <psp2/power.h>
+#include <psp2/sysmodule.h>
+
+extern "C" unsigned int _newlib_heap_size_user = 240 * 1024 * 1024;
+
+#endif
+
 int utf8_main(int argc, char ** argv) {
+
+	#ifdef __vita__
+		//sceSysmoduleLoadModule((SceSysmoduleModuleId)9);
+
+		scePowerSetArmClockFrequency(444);
+		scePowerSetBusClockFrequency(222);
+		scePowerSetGpuClockFrequency(222);
+		scePowerSetGpuXbarClockFrequency(166);
+	#endif
 	
 	// GCC -ffast-math disables denormal before main() - do the same for other compilers
 	Thread::disableFloatDenormals();
@@ -87,6 +104,7 @@ int utf8_main(int argc, char ** argv) {
 	
 	// Initialize the crash handler
 	{
+	#ifndef __vita__
 		CrashHandler::initialize(argc, argv);
 		std::string command_line;
 		for(int i = 1; i < argc; i++) {
@@ -94,6 +112,10 @@ int utf8_main(int argc, char ** argv) {
 			command_line += ' ';
 		}
 		CrashHandler::setVariable("Command line", command_line);
+	#else
+        CrashHandler::initialize(1, nullptr);
+        CrashHandler::setVariable("Command line", "");
+	#endif
 	}
 	
 	{
@@ -134,7 +156,11 @@ int utf8_main(int argc, char ** argv) {
 	Logger::add(new logger::CriticalErrorDialog);
 	
 	// Parse the command line and process options
+#ifndef __vita__
 	ExitStatus status = parseCommandLine(argc, argv);
+#else
+	ExitStatus status = ExitStatus::RunProgram;
+#endif
 	
 	benchmark::begin(benchmark::Startup);
 	

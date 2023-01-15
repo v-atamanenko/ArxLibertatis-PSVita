@@ -18,7 +18,9 @@ option(SET_NOISY_WARNING_FLAGS "Enable noisy compiler warnings" OFF)
 option(SET_OPTIMIZATION_FLAGS "Adjust compiler optimization flags" ON)
 
 set(conservative_warnings)
-set(enable_rtti)
+if(NOT VITA)
+	set(enable_rtti)
+endif()
 set(disable_libstdcxx_debug)
 
 if(MSVC)
@@ -91,7 +93,9 @@ if(MSVC)
 			string(REGEX REPLACE "/GR( |$)" "" ${flag_var} "${${flag_var}}")
 			set(${flag_var} "${${flag_var}} /GR-")
 		endforeach(flag_var)
-		list(APPEND enable_rtti /GR)
+		if(NOT VITA)
+			list(APPEND enable_rtti /GR)
+		endif()
 		
 	endif()
 	
@@ -200,7 +204,7 @@ else(MSVC)
 		endif()
 	endif()
 	
-	if(USE_LTO)
+	if(USE_LTO AND NOT VITA)
 		add_cxxflag("-flto=auto")
 		if(NOT FLAG_FOUND)
 			add_cxxflag("-flto")
@@ -448,7 +452,7 @@ else(MSVC)
 	if(SET_OPTIMIZATION_FLAGS)
 		
 		add_cxxflag("-fno-rtti")
-		if(FLAG_FOUND)
+		if(FLAG_FOUND AND NOT VITA)
 			list(APPEND enable_rtti "-frtti")
 		endif()
 		
@@ -473,7 +477,7 @@ else(MSVC)
 			
 		endforeach(flag_var)
 		
-		if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+		if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT VITA)
 			
 			# set debug symbol level to -g3
 			check_compiler_flag(RESULT "-g3")
@@ -489,8 +493,12 @@ else(MSVC)
 			endif()
 			string(REGEX REPLACE "(^| )-O[0-9g]( |$)" "\\1" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 			set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${RESULT}")
+
+		elseif(CMAKE_BUILD_TYPE STREQUAL "Debug" AND VITA)
+
+			set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 			
-		elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+		elseif(CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT VITA)
 			
 			if((NOT CMAKE_CXX_FLAGS MATCHES "-g(|[0-9]|gdb)")
 			   AND (NOT CMAKE_CXX_FLAGS_RELEASE MATCHES "-g(|[0-9]|gdb)"))
@@ -503,12 +511,21 @@ else(MSVC)
 				# that might not expect denormals to be disabled.
 				set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fno-fast-math")
 			endif()
+
+		elseif(CMAKE_BUILD_TYPE STREQUAL "Release" AND VITA)
 			
+			set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -ffast-math")
+
 		endif()
 		
 	endif(SET_OPTIMIZATION_FLAGS)
 	
 endif(MSVC)
+
+
+if(VITA)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-optimize-sibling-calls -fno-pic -fsigned-char -Wno-psabi")
+endif()
 
 set(BUILD_TYPES ${CMAKE_CONFIGURATION_TYPES} ${CMAKE_BUILD_TYPE})
 list(REMOVE_DUPLICATES BUILD_TYPES)

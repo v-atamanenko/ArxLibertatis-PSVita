@@ -117,12 +117,17 @@ void GLTexture::upload() {
 	}
 	
 	if(hasMipmaps()) {
+	#ifdef GL_GENERATE_MIPMAP
 		glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+	#endif
+
 		if(renderer->getMaxAnisotropy() > 1.f) {
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, renderer->getMaxAnisotropy());
 		}
 	} else {
+	#ifdef GL_TEXTURE_MAX_LEVEL
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	#endif
 	}
 	
 	// TODO handle GL_MAX_TEXTURE_SIZE
@@ -131,10 +136,10 @@ void GLTexture::upload() {
 		Image extended;
 		extended.create(size_t(getStoredSize().x), size_t(getStoredSize().y), m_image.getFormat());
 		extended.extendClampToEdgeBorder(m_image);
-		glTexImage2D(GL_TEXTURE_2D, 0, internal, getStoredSize().x, getStoredSize().y, 0, format,
+		glTexImage2D(GL_TEXTURE_2D, 0, internalUnsized, getStoredSize().x, getStoredSize().y, 0, format,
 		             GL_UNSIGNED_BYTE, extended.getData());
 	} else {
-		glTexImage2D(GL_TEXTURE_2D, 0, internal, getSize().x, getSize().y, 0, format,
+		glTexImage2D(GL_TEXTURE_2D, 0, internalUnsized, getSize().x, getSize().y, 0, format,
 		             GL_UNSIGNED_BYTE, m_image.getData());
 	}
 	

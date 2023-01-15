@@ -78,6 +78,7 @@ set(_SDL2_SEARCH_PATHS
 	/opt/local # DarwinPorts
 	/opt/csw # Blastwave
 	/opt
+	$ENV{VITASDK}/arm-vita-eabi
 )
 
 
@@ -85,6 +86,7 @@ find_path(SDL2_INCLUDE_DIR SDL.h
 	HINTS
 		$ENV{SDL2DIR}
 		${_PC_SDL2_INCLUDE_DIRS}
+		$ENV{VITASDK}/arm-vita-eabi/
 	PATH_SUFFIXES include/SDL2 include
 	PATHS ${_SDL2_SEARCH_PATHS}
 	DOC "The directory where SDL.h resides"

@@ -57,11 +57,12 @@ class Thread {
 	
 #endif
 	
+	size_t m_stacksize;
 	std::string m_threadName;
 	
 public:
 	
-	Thread();
+	Thread(size_t stacksize = 0);
 	
 	virtual ~Thread();
 	
@@ -125,7 +126,9 @@ class StoppableThread : public Thread {
 	
 public:
 	
-	StoppableThread() : m_stopRequested(false) { }
+	StoppableThread(size_t stacksize = 0) : Thread(stacksize) {
+		m_stopRequested = false;
+	}
 	
 	void stop(Priority priority = Highest) {
 		m_stopRequested = true;

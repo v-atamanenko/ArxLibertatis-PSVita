@@ -57,6 +57,13 @@ namespace Default {
 #define THUMBNAIL_DEFAULT_WIDTH 320
 #define THUMBNAIL_DEFAULT_HEIGHT 200
 
+#ifdef __vita__
+#undef ARX_DEFAULT_WIDTH
+#undef ARX_DEFAULT_HEIGHT
+#define ARX_DEFAULT_WIDTH 720
+#define ARX_DEFAULT_HEIGHT 408
+#endif
+
 constexpr const std::string_view
 	language,
 	audio,
@@ -75,7 +82,11 @@ constexpr const std::string_view
 
 constexpr const int
 	refreshRate = 0,
+#ifndef __vita__
 	levelOfDetail = 2,
+#else
+	levelOfDetail = 0,
+#endif
 	vsync = -1,
 	fpsLimit = -1,
 	maxAnisotropicFiltering = 9001,
@@ -97,8 +108,13 @@ constexpr const bool
 	viewBobbing = true,
 	screenShake = true,
 	showCrosshair = true,
+#ifndef __vita__
 	antialiasing = true,
 	colorkeyAntialiasing = true,
+#else
+	antialiasing = false,
+	colorkeyAntialiasing = false,
+#endif
 	limitSpeechWidth = true,
 	hudScaleInteger = true,
 	bookScaleInteger = false,
@@ -122,13 +138,19 @@ const bool allowConsole = false;
 #endif
 
 constexpr const float
+#ifndef __vita__
 	fogDistance = 10.f,
+	hudScale = 0.5f,
+	fontSize = 1.f,
+#else
+	fogDistance = 3.f,
+	hudScale = 1.5f,
+	fontSize = 125.f,
+#endif
 	gamma = 5.f,
 	fov = 75.f,
-	hudScale = 0.5f,
 	bookScale = 1.f,
 	cursorScale = 0.5f,
-	fontSize = 1.f,
 	volume = 10.f,
 	sfxVolume = 10.f,
 	speechVolume = 10.f,

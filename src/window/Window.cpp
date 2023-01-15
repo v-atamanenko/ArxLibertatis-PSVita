@@ -55,7 +55,11 @@ void Window::Listener::onDroppedFile(const Window & /*window*/, const fs::path &
 
 Window::Window()
 	: m_position(0, 0)
+#ifndef __vita__
 	, m_mode(Vec2i(640, 480))
+#else
+	, m_mode(Vec2i(720, 408))
+#endif
 	, m_minimized(false)
 	, m_maximized(false)
 	, m_visible(false)

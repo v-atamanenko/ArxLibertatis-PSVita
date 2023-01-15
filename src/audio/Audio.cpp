@@ -832,9 +832,9 @@ void threadStart() {
 	
 	arx_assert(!updateThread);
 	
-	//updateThread = new SoundUpdateThread();
-	//updateThread->setThreadName("Sound Update");
-	//updateThread->start();
+	updateThread = new SoundUpdateThread();
+	updateThread->setThreadName("Sound Update");
+	updateThread->start();
 }
 
 void threadStop() {

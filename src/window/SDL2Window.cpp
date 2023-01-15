@@ -185,7 +185,7 @@ bool SDL2Window::initializeFramework() {
 
 #ifdef __vita__
 	vglSetParamBufferSize(2 * 1024 * 1024);
-	vglInitWithCustomThreshold(0, 720, 408, 11 * 1024 * 1024, 0, 0, 0, SCE_GXM_MULTISAMPLE_2X);
+	vglInitWithCustomThreshold(0, 960, 544, 11 * 1024 * 1024, 0, 0, 0, SCE_GXM_MULTISAMPLE_2X);
 	LogError << "Inited VitaGL customly";
 #endif
 	
@@ -400,6 +400,11 @@ int SDL2Window::createWindowAndGLContext(const char * profile) {
 	m_window = SDL_CreateWindow(m_title.c_str(), x, y, m_mode.resolution.x, m_mode.resolution.y, windowFlags);
 	if(!m_window) {
 		LogError << "Could not create window: " << SDL_GetError();
+		return 0;
+	}
+	m_glcontext = SDL_GL_CreateContext(m_window);
+	if(!m_glcontext) {
+		LogError << "Could not create " << profile << " context: " << SDL_GetError();
 		return 0;
 	}
 
@@ -889,7 +894,11 @@ void SDL2Window::processEvents(bool waitForEvent) {
 
 void SDL2Window::showFrame() {
 	ARX_PROFILE_FUNC();
-	SDL_GL_SwapWindow(m_window);
+	#ifndef __vita__
+		SDL_GL_SwapWindow(m_window);
+	#else
+		vglSwapBuffers(GL_FALSE);
+	#endif
 }
 
 void SDL2Window::hide() {
